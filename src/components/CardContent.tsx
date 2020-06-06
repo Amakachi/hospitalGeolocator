@@ -1,17 +1,18 @@
-import  React from 'react'
+import React, {ChangeEvent} from 'react'
 import {createStyles, makeStyles, Theme} from '@material-ui/core/styles';
 import Card from '@material-ui/core/Card';
+import { compose, withProps, withHandlers, withState } from "recompose"
 import CardContent from '@material-ui/core/CardContent';
 import MenuItem from '@material-ui/core/MenuItem';
 import TextField from '@material-ui/core/TextField';
+
+import GoogleMapReact from 'google-map-react';
 import Button from '@material-ui/core/Button';
 import PlacesAutocomplete, {geocodeByAddress, getLatLng} from "react-places-autocomplete";
 import {Box} from "@material-ui/core";
 import {GoogleMap, Marker, withGoogleMap, withScriptjs} from "react-google-maps";
 import withStyles from "@material-ui/core/styles/withStyles";
 import InputBase from "@material-ui/core/InputBase";
-import FormControl from "@material-ui/core/FormControl";
-import InputLabel from "@material-ui/core/InputLabel";
 import Select from "@material-ui/core/Select";
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -81,19 +82,21 @@ const BootstrapInput = withStyles((theme: Theme) =>
     }),
 )(InputBase);
 
-const MyMapComponent = withScriptjs(withGoogleMap((props:any) =>
+const MyMapComponent = withGoogleMap((props:any) =>
     <GoogleMap
         defaultZoom={8}
-        defaultCenter={{ lat: -34.397, lng: 150.644 }}
+        defaultCenter={{ lat: props.coordinates.lat, lng: props.coordinates.lng }}
     >
-        <Marker position={{ lat: -34.397, lng: 150.644 }} />
+
+        <Marker  position={{ lat: props.coordinates.lat, lng: props.coordinates.lng }} />
     </GoogleMap>
-))
+)
 
 
 function ContentWrapper() {
     const [address, setAddress] = React.useState('')
-    const [coordinates, setCordinates] = React.useState({lat: null, lng: null})
+    const [coordinates, setCordinates] = React.useState({lat: 6.5243793, lng: 3.3792057})
+    const [map, setMap] = React.useState({})
     const handleSelect:any = async (value:any) => {
         const results = await geocodeByAddress(value);
         const latLng:any = await getLatLng(results[0]);
@@ -101,6 +104,67 @@ function ContentWrapper() {
         setAddress(value);
         setCordinates(latLng)
     }
+    const [radius, setRadius] = React.useState('')
+    function handleSubmit(){
+        console.log(coordinates, radius);
+
+    }
+   let apiHasLoaded = ((map:any, mapsApi) => {
+        this.setState({
+            mapsLoaded: true,
+            map,
+            mapsApi,
+            autoCompleteService: new mapsApi.places.AutocompleteService(),
+            placesService: new mapsApi.places.PlacesService(map),
+            geoCoderService: new mapsApi.Geocoder(),
+            directionService: new mapsApi.DirectionsService(),
+        });
+    });
+
+    const handleSearch = (() => {
+        setCordinates(coordinates)
+        const { mapsApi, directionService, placesService } = this.state;
+        const filteredResults: never[] = [];
+
+        // 1. Create places request
+        const placesRequest = {
+            location: coordinates,
+            type: ['hospital'],
+            // query: 'ice cream',
+            rankBy: mapsApi.places.RankBy.DISTANCE,
+             radius: radius
+        };
+        placesService.textSearch(placesRequest, ((response:any) => {
+            for (let i = 0; i < response.length; i ++) {
+                const hospital = response[i];
+                const {rating, name} = hospital;
+                const address = hospital.formatted_address; // e.g 80 mandai lake...
+
+                // 4. Create direction request for each location
+                const directionRequest = {
+                    origin: coordinates, // From
+                    destination: address, // To
+                    travelMode: 'DRIVING',
+                };
+                // directionService.route(directionRequest, ((result, status) => {
+                //     if (status !== 'OK') { return }
+                //     const travellingRoute = result.routes[0].legs[0];
+                //     const travellingTimeInMinutes = travellingRoute.duration.value / 60;
+                //
+                //     // 6. Places within limit are added to results
+                //     // if (travellingTimeInMinutes < timeLimitInMinutes) {
+                //     //     filteredResults.push(name);
+                //     // }
+                // }));
+
+                // this.setState({ searchResults: filteredResults });
+            }
+        }));
+        });
+
+   
+    // service = new google.maps.places.PlacesService()
+    // service.nearbySearch()
 
     const classes = useStyles();
     return(
@@ -119,17 +183,18 @@ function ContentWrapper() {
                                     <br/>
                                     <Select labelId="demo-customized-select-label"
                                             id="demo-customized-select"
-                                            input={<BootstrapInput /> }>
+                                            input={<BootstrapInput
+                                            value={radius} onChange={(e:any) => setRadius(e.target.value)}/> }>
                                         <MenuItem value="">
                                             <em>None</em>
                                         </MenuItem>
-                                        <MenuItem value={5}>5Km</MenuItem>
-                                        <MenuItem value={10}>10Km</MenuItem>
-                                        <MenuItem value={20}>20Km</MenuItem>
+                                        <MenuItem value={500}>5Km</MenuItem>
+                                        <MenuItem value={10000}>10Km</MenuItem>
+                                        <MenuItem value={20000}>20Km</MenuItem>
 
                                     </Select>
 
-                                    <Button variant="contained" size="large" color="primary" className={classes.buttonStyle} >
+                                    <Button variant="contained" size="large" color="primary" className={classes.buttonStyle} onClick={handleSubmit} >
                                         Submit
                                     </Button>
 
@@ -151,14 +216,27 @@ function ContentWrapper() {
                         )
                     }
                 </PlacesAutocomplete>
-                <MyMapComponent
-                    googleMapURL ="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=geometry,drawing,places"
-                    loadingElement={<div style={{ height: `100%` }} />}
-                    containerElement={<div style={{ height: `400px` , width: `500px`, marginTop: `15px`}} />}
-                    mapElement={<div style={{ height: `400px` }} />}
-                />
+                {/*<MyMapComponent*/}
+                {/*    googleMapURL =""*/}
+                {/*    loadingElement={<div style={{ height: `100%` }} />}*/}
+                {/*    containerElement={<div style={{ height: `400px` , width: `500px`, marginTop: `15px`}} />}*/}
+                {/*    mapElement={<div style={{ height: `400px` }} />}*/}
+                {/*    coordinates={coordinates}*/}
+                {/*/>*/}
+                <GoogleMapReact
+                    bootstrapURLKeys={{
+                        key: '{YOUR_API_KEY}',
+                        libraries: ['places', 'directions']
+                    }}
+                    defaultZoom={11} // Supports DP, e.g 11.5
+                    defaultCenter={{ lat: 1.3521, lng: 103.8198 }}
+                    yesIWantToUseGoogleMapApiInternals={true}
+                    onGoogleApiLoaded={({ map, maps }) => this.apiHasLoaded(map, maps)}
+                >
+                    <Marker  position={{ lat: coordinates.lat, lng: coordinates.lng }} />
+                </GoogleMapReact>
             </CardContent>
 
     )
 }
-export default ContentWrapper;
+    export default ContentWrapper;
