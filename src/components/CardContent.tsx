@@ -97,6 +97,10 @@ function ContentWrapper() {
     const [address, setAddress] = React.useState('')
     const [coordinates, setCordinates] = React.useState({lat: 6.5243793, lng: 3.3792057})
     const [map, setMap] = React.useState({})
+    const [mapsApi, setMapsApi] = React.useState({})
+    const [mapLoaded, setMapLoaded] = React.useState(false)
+    const [placesService, setPlacesService] = React.useState({})
+    const [filteredResult, setFilteredResult] = React.useState([])
     const handleSelect:any = async (value:any) => {
         const results = await geocodeByAddress(value);
         const latLng:any = await getLatLng(results[0]);
@@ -109,22 +113,19 @@ function ContentWrapper() {
         console.log(coordinates, radius);
 
     }
-   let apiHasLoaded = ((map:any, mapsApi) => {
-        this.setState({
-            mapsLoaded: true,
-            map,
-            mapsApi,
-            autoCompleteService: new mapsApi.places.AutocompleteService(),
-            placesService: new mapsApi.places.PlacesService(map),
-            geoCoderService: new mapsApi.Geocoder(),
-            directionService: new mapsApi.DirectionsService(),
-        });
-    });
+   let apiHasLoaded = ((map:any, mapsApi:any) => {
 
+        setMap(map)
+        setMapLoaded(true)
+        setMapsApi(mapsApi)
+       setPlacesService(new google.maps.places.PlacesService(map);)
+        // setPlacesService(new mapsApi.places.PlacesService(map))
+
+
+    });
+    let service = placesService
     const handleSearch = (() => {
-        setCordinates(coordinates)
-        const { mapsApi, directionService, placesService } = this.state;
-        const filteredResults: never[] = [];
+
 
         // 1. Create places request
         const placesRequest = {
@@ -134,9 +135,12 @@ function ContentWrapper() {
             rankBy: mapsApi.places.RankBy.DISTANCE,
              radius: radius
         };
-        placesService.textSearch(placesRequest, ((response:any) => {
+
+
+        service.textSearch(placesRequest, ((response:any) => {
             for (let i = 0; i < response.length; i ++) {
                 const hospital = response[i];
+                console.log(hospital);
                 const {rating, name} = hospital;
                 const address = hospital.formatted_address; // e.g 80 mandai lake...
 
@@ -162,10 +166,6 @@ function ContentWrapper() {
         }));
         });
 
-   
-    // service = new google.maps.places.PlacesService()
-    // service.nearbySearch()
-
     const classes = useStyles();
     return(
             <CardContent>
@@ -173,8 +173,7 @@ function ContentWrapper() {
                     {
                         ({getInputProps, suggestions, getSuggestionItemProps, loading}) => (
                             <Box>
-                                {/*<p>Latitude: {coordinates.lat}</p>*/}
-                                {/*<p>Longitude: {coordinates.lng}</p>*/}
+
                                 <form action="" className={classes.margin} style={{display: 'flex'}}>
                                     {/*<TextField id="filled-search" label="Search field" type="search" variant="filled"  />*/}
 
@@ -225,13 +224,13 @@ function ContentWrapper() {
                 {/*/>*/}
                 <GoogleMapReact
                     bootstrapURLKeys={{
-                        key: '{YOUR_API_KEY}',
+                        key: 'AIzaSyAFuqG_7MUm5R8ykACrJYTQHqvja2yyxzM',
                         libraries: ['places', 'directions']
                     }}
                     defaultZoom={11} // Supports DP, e.g 11.5
                     defaultCenter={{ lat: 1.3521, lng: 103.8198 }}
                     yesIWantToUseGoogleMapApiInternals={true}
-                    onGoogleApiLoaded={({ map, maps }) => this.apiHasLoaded(map, maps)}
+                    onGoogleApiLoaded={({ map, maps }) => apiHasLoaded(map, maps)}
                 >
                     <Marker  position={{ lat: coordinates.lat, lng: coordinates.lng }} />
                 </GoogleMapReact>
