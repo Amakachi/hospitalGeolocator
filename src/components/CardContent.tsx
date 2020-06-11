@@ -1,19 +1,21 @@
-import React, {ChangeEvent} from 'react'
+import React, {ChangeEvent, useRef, useState} from 'react'
 import {createStyles, makeStyles, Theme} from '@material-ui/core/styles';
-import Card from '@material-ui/core/Card';
 import { compose, withProps, withHandlers, withState } from "recompose"
 import CardContent from '@material-ui/core/CardContent';
 import MenuItem from '@material-ui/core/MenuItem';
-import TextField from '@material-ui/core/TextField';
-
+import {  Input, Divider, message } from 'antd';
+import MapMarker from "./MapMarker";
+import { Card } from 'antd';
 import GoogleMapReact from 'google-map-react';
 import Button from '@material-ui/core/Button';
 import PlacesAutocomplete, {geocodeByAddress, getLatLng} from "react-places-autocomplete";
 import {Box} from "@material-ui/core";
-import {GoogleMap, Marker, withGoogleMap, withScriptjs} from "react-google-maps";
+// import {GoogleMap, Marker, withGoogleMap, withScriptjs} from "react-google-maps";
 import withStyles from "@material-ui/core/styles/withStyles";
 import InputBase from "@material-ui/core/InputBase";
 import Select from "@material-ui/core/Select";
+import useSupercluster from "use-supercluster";
+import '../App.css';
 
 const useStyles = makeStyles((theme: Theme) =>
     createStyles({
@@ -82,25 +84,21 @@ const BootstrapInput = withStyles((theme: Theme) =>
     }),
 )(InputBase);
 
-const MyMapComponent = withGoogleMap((props:any) =>
-    <GoogleMap
-        defaultZoom={8}
-        defaultCenter={{ lat: props.coordinates.lat, lng: props.coordinates.lng }}
-    >
 
-        <Marker  position={{ lat: props.coordinates.lat, lng: props.coordinates.lng }} />
-    </GoogleMap>
-)
-
-
-function ContentWrapper() {
+ const ContentWrapper = () => {
     const [address, setAddress] = React.useState('')
     const [coordinates, setCordinates] = React.useState({lat: 6.5243793, lng: 3.3792057})
     const [map, setMap] = React.useState({})
-    const [mapsApi, setMapsApi] = React.useState({})
+    const [mapsApi, setMapsApi] = React.useState()
     const [mapLoaded, setMapLoaded] = React.useState(false)
-    const [placesService, setPlacesService] = React.useState({})
-    const [filteredResult, setFilteredResult] = React.useState([])
+    const [placesService, setPlacesService] = React.useState()
+    const [filteredResult, setFilteredResult] = React.useState( Array());
+    const [markers, setMarkers] = React.useState()
+     const Marker = ({ children }:any) => children;
+     let mapRef = useRef();
+     const [bounds, setBounds] = useState([]);
+     const [zoom, setZoom] = useState(10);
+
     const handleSelect:any = async (value:any) => {
         const results = await geocodeByAddress(value);
         const latLng:any = await getLatLng(results[0]);
@@ -109,66 +107,93 @@ function ContentWrapper() {
         setCordinates(latLng)
     }
     const [radius, setRadius] = React.useState('')
-    function handleSubmit(){
+   const handleSubmit = () => {
         console.log(coordinates, radius);
 
     }
-   let apiHasLoaded = ((map:any, mapsApi:any) => {
 
-        setMap(map)
-        setMapLoaded(true)
-        setMapsApi(mapsApi)
-       setPlacesService(new google.maps.places.PlacesService(map);)
-        // setPlacesService(new mapsApi.places.PlacesService(map))
+    let addMarker = ((lat:any, lng:any, name:any) => {
 
+        let prevMarkers:[] = setMarkers([]);
+         const markers:any = Object.assign([], prevMarkers);
 
+         // If name already exists in marker list just replace lat & lng.
+         let newMarker = true;
+         for (let i = 0; i < markers.length; i++) {
+             if (markers[i].name === name) {
+                 newMarker = false;
+                 markers[i].lat = lat;
+                 markers[i].lng = lng;
+                 message.success(`Updated "${name}" Marker`);
+                 break;
+             }
+         }
+        if (newMarker) {
+            markers.push({ lat, lng, name });
+            message.success(`Added new "${name}" Marker`);
+        }
+
+        setMarkers({ markers });
     });
-    let service = placesService
-    const handleSearch = (() => {
+     let apiHasLoaded = ((map:any, mapsApi:any) => {
+         setMap(map)
+         setMapLoaded(true)
+         setMapsApi(mapsApi)
+         setPlacesService(new mapsApi.places.PlacesService(map));
+         mapRef.current = map;
+     });
 
+
+    const handleSearch = (() => {
 
         // 1. Create places request
         const placesRequest = {
             location: coordinates,
             type: ['hospital'],
-            // query: 'ice cream',
             rankBy: mapsApi.places.RankBy.DISTANCE,
              radius: radius
         };
 
 
-        service.textSearch(placesRequest, ((response:any) => {
-            for (let i = 0; i < response.length; i ++) {
-                const hospital = response[i];
-                console.log(hospital);
-                const {rating, name} = hospital;
-                const address = hospital.formatted_address; // e.g 80 mandai lake...
-
-                // 4. Create direction request for each location
-                const directionRequest = {
-                    origin: coordinates, // From
-                    destination: address, // To
-                    travelMode: 'DRIVING',
-                };
-                // directionService.route(directionRequest, ((result, status) => {
-                //     if (status !== 'OK') { return }
-                //     const travellingRoute = result.routes[0].legs[0];
-                //     const travellingTimeInMinutes = travellingRoute.duration.value / 60;
-                //
-                //     // 6. Places within limit are added to results
-                //     // if (travellingTimeInMinutes < timeLimitInMinutes) {
-                //     //     filteredResults.push(name);
-                //     // }
-                // }));
-
-                // this.setState({ searchResults: filteredResults });
-            }
-        }));
+       placesService.textSearch(placesRequest, (response:[]) => {
+            setFilteredResult(response)
+            // for (let i = 0; i < response.length; i ++) {
+            //     const hospital:any = response[i];
+            //     const {rating, name} = hospital;
+            //
+            //     const address = hospital.formatted_address;// e.g 80 mandai lake...
+            //     const location = hospital.geometry.location;
+            //
+            //     filteredResult.push(hospital.name, address, rating, location)
+            //
+            //    setFilteredResult(filteredResult)
+            //
+            // }
         });
 
-    const classes = useStyles();
+        });
+     const points = filteredResult.map(hospital => ({
+         type: "Feature",
+         properties: { cluster: false, placeId: hospital.place_id, name: hospital.name, address: hospital.formatted_address },
+         geometry: {
+             type: "Point",
+             coordinates: [
+                 parseFloat(hospital.geometry.location.longitude),
+                 parseFloat(hospital.geometry.location.latitude)
+             ]
+         }
+     }));
+     const { clusters, supercluster } = useSupercluster({
+         points,
+         bounds,
+         zoom,
+         options: { radius: 75, maxZoom: 20 }
+     });
+     const classes = useStyles();
+    console.log(filteredResult);
+
     return(
-            <CardContent>
+            <Card>
                 <PlacesAutocomplete value={address} onChange={setAddress} onSelect={handleSelect}>
                     {
                         ({getInputProps, suggestions, getSuggestionItemProps, loading}) => (
@@ -178,12 +203,13 @@ function ContentWrapper() {
                                     {/*<TextField id="filled-search" label="Search field" type="search" variant="filled"  />*/}
 
 
-                                    <BootstrapInput id="demo-customized-textbox"   {...getInputProps({placeholder: "Type address"})}/>
+                                    <BootstrapInput
+                                        id="demo-customized-textbox"   {...getInputProps({placeholder: "Type address"})} />
                                     <br/>
                                     <Select labelId="demo-customized-select-label"
                                             id="demo-customized-select"
                                             input={<BootstrapInput
-                                            value={radius} onChange={(e:any) => setRadius(e.target.value)}/> }>
+                                                value={radius} onChange={(e: any) => setRadius(e.target.value)}/>}>
                                         <MenuItem value="">
                                             <em>None</em>
                                         </MenuItem>
@@ -193,7 +219,8 @@ function ContentWrapper() {
 
                                     </Select>
 
-                                    <Button variant="contained" size="large" color="primary" className={classes.buttonStyle} onClick={handleSubmit} >
+                                    <Button variant="contained" size="large" color="primary"
+                                            className={classes.buttonStyle} onClick={handleSearch} >
                                         Submit
                                     </Button>
 
@@ -201,7 +228,7 @@ function ContentWrapper() {
                                 <Box>
                                     {loading ? <div> loading...</div> : null}
 
-                                    {suggestions.map( suggestion => {
+                                    {suggestions.map(suggestion => {
                                         const style = {
                                             backgroundColor: suggestion.active ? "#41b6e6" : "#fff"
                                         }
@@ -215,26 +242,111 @@ function ContentWrapper() {
                         )
                     }
                 </PlacesAutocomplete>
-                {/*<MyMapComponent*/}
-                {/*    googleMapURL =""*/}
-                {/*    loadingElement={<div style={{ height: `100%` }} />}*/}
-                {/*    containerElement={<div style={{ height: `400px` , width: `500px`, marginTop: `15px`}} />}*/}
-                {/*    mapElement={<div style={{ height: `400px` }} />}*/}
-                {/*    coordinates={coordinates}*/}
-                {/*/>*/}
+                <div style={{ height: '400px', width: '500px' }}>
                 <GoogleMapReact
                     bootstrapURLKeys={{
-                        key: 'AIzaSyAFuqG_7MUm5R8ykACrJYTQHqvja2yyxzM',
+                        key: 'API-KEY',
                         libraries: ['places', 'directions']
                     }}
                     defaultZoom={11} // Supports DP, e.g 11.5
-                    defaultCenter={{ lat: 1.3521, lng: 103.8198 }}
+                    defaultCenter={{ lat: coordinates.lat, lng: coordinates.lng}}
                     yesIWantToUseGoogleMapApiInternals={true}
-                    onGoogleApiLoaded={({ map, maps }) => apiHasLoaded(map, maps)}
+                    onGoogleApiLoaded={({ map, maps}) =>
+                    {
+                        apiHasLoaded(map, maps)
+                    }
+                    }
+                    onChange={({ zoom, bounds }) => {
+                        setZoom(zoom);
+                        setBounds([
+                            bounds.nw.lng,
+                            bounds.se.lat,
+                            bounds.se.lng,
+                            bounds.nw.lat
+                        ]);
+                    }}
                 >
-                    <Marker  position={{ lat: coordinates.lat, lng: coordinates.lng }} />
+                    {
+                        <div style={{ height: '400px', width: '500px' }}>
+                            {clusters.map(cluster => {
+                                const [longitude, latitude] = cluster.geometry.coordinates;
+                                const {
+                                    cluster: isCluster,
+                                    point_count: pointCount
+                                } = cluster.properties;
+
+                                if (isCluster) {
+                                    return (
+                                        <Marker
+                                            key={`cluster-${cluster.id}`}
+                                            lat={latitude}
+                                            lng={longitude}
+                                        >
+                                            <div
+                                                className="cluster-marker"
+                                                style={{
+                                                    width: `${10 + (pointCount / points.length) * 20}px`,
+                                                    height: `${10 + (pointCount / points.length) * 20}px`
+                                                }}
+                                                onClick={() => {
+                                                    const expansionZoom = Math.min(
+                                                        supercluster.getClusterExpansionZoom(cluster.id),
+                                                        20
+                                                    );
+                                                    mapRef.current.setZoom(expansionZoom);
+                                                    mapRef.current.panTo({ lat: latitude, lng: longitude });
+                                                }}
+                                            >
+                                                {pointCount}
+                                            </div>
+                                        </Marker>
+                                    );
+                                }
+
+                                return (
+                                    <Marker
+                                        key={`place-${cluster.properties.placeId}`}
+                                        lat={latitude}
+                                        lng={longitude}
+                                    >
+                                        {/*<button className="crime-marker">*/}
+                                        {/*    <img src="/custody.svg" alt="crime doesn't pay" />*/}
+                                        {/*</button>*/}
+                                    </Marker>
+                                );
+                            })}
+
+                            {/*{filteredResult.map((center: { place_id: any; geometry: { location: any; }; }, index: string | number | undefined) =>*/}
+
+
+                            {/*    <AnyReactComponent*/}
+                            {/*    lat= {center.geometry.location.lat()}*/}
+                            {/*    lng={center.geometry.location.lng()}*/}
+                            {/*    text="My Marker"*/}
+                            {/*    />*/}
+
+
+                            {/*    // key={index}*/}
+                            {/*        // position={{*/}
+                            {/*        //     lat: 6.5243793, lng: 3.3792057*/}
+                            {/*        // }}*/}
+                            {/*        // position={{*/}
+                            {/*        //     lat: center.location,*/}
+                            {/*        //     lng: center.longitude*/}
+                            {/*        // }}*/}
+                            {/*        // place={{*/}
+                            {/*        //     placeId: center.place_id,*/}
+                            {/*        //     position: center.geometry.location*/}
+                            {/*        // }}*/}
+
+
+                            {/*)}*/}
+                        </div>
+                    }
+
                 </GoogleMapReact>
-            </CardContent>
+                </div>
+            </Card>
 
     )
 }
